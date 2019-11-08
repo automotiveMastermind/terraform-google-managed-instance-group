@@ -243,8 +243,8 @@ resource "google_compute_firewall" "default-ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["${var.ssh_source_ranges}"]
-  target_tags   = ["allow-ssh"]
+  "source_ranges" = ["${var.ssh_source_ranges}"]
+  "target_tags"   = ["allow-ssh"]
 }
 
 resource "google_compute_health_check" "mig-health-check" {
@@ -274,8 +274,8 @@ resource "google_compute_firewall" "mig-health-check" {
     ports    = ["${var.hc_port == "" ? var.service_port : var.hc_port}"]
   }
 
-  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
-  target_tags   = ["${var.target_tags}"]
+  "source_ranges" = ["130.211.0.0/22", "35.191.0.0/16"]
+  "target_tags"   = ["${var.target_tags}"]
 }
 
 data "google_compute_instance_group" "zonal" {
