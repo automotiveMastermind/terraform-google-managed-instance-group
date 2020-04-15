@@ -14,27 +14,52 @@
  * limitations under the License.
  */
 
+###############
+# Data Sources
+###############
+data "google_compute_image" "image" {
+  project = var.source_image != "" ? var.source_image_project : "centos-cloud"
+  name    = var.source_image != "" ? var.source_image : "centos-6-v20180716"
+}
+
+data "google_compute_image" "image_family" {
+  project = var.source_image_family != "" ? var.source_image_project : "centos-cloud"
+  family  = var.source_image_family != "" ? var.source_image_family : "centos-6"
+}
+
+#########
+# Locals
+#########
+
+locals {
+  boot_disk = [
+    {
+      source_image = var.source_image != "" ? data.google_compute_image.image.self_link : data.google_compute_image.image_family.self_link
+      disk_size_gb = var.disk_size_gb
+      disk_type    = var.disk_type
+      auto_delete  = var.auto_delete
+      boot         = "true"
+    },
+  ]
+
+  all_disks = concat(local.boot_disk, var.additional_disks)
+
+  # NOTE: Even if all the shielded_instance_config values are false, if the
+  # config block exists and an unsupported image is chosen, the apply will fail
+  # so we use a single-value array with the default value to initialize the block
+  # only if it is enabled.
+  shielded_vm_configs = var.enable_shielded_vm ? [true] : []
+}
+
 resource "google_compute_instance_template" "default" {
-  count       = var.module_enabled ? 1 : 0
-  project     = var.project
-  name_prefix = "default-"
-
-  machine_type = var.machine_type
-
-  region = var.region
-
-  # TF-UPGRADE-TODO: In Terraform v0.10 and earlier, it was sometimes necessary to
-  # force an interpolation expression to be interpreted as a list by wrapping it
-  # in an extra set of list brackets. That form was supported for compatibility in
-  # v0.11, but is no longer supported in Terraform v0.12.
-  #
-  # If the expression in the following list itself returns a list, remove the
-  # brackets to avoid interpretation as a list of lists. If the expression
-  # returns a single list item then leave it as-is and remove this TODO comment.
-  # DONE, removed the extra bracket due to the network tags returning a list
-  tags = concat(["allow-ssh"], var.target_tags)
-
-  labels = var.instance_labels
+  count          = var.module_enabled ? 1 : 0
+  name_prefix    = "default-"
+  project        = var.project
+  machine_type   = var.machine_type
+  labels         = var.instance_labels
+  tags           = concat(["allow-ssh"], var.target_tags)
+  can_ip_forward = var.can_ip_forward
+  region         = var.region
 
   network_interface {
     network    = var.subnetwork == "" ? var.network : ""
@@ -42,34 +67,44 @@ resource "google_compute_instance_template" "default" {
     dynamic "access_config" {
       for_each = var.access_config
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE
-        nat_ip       = lookup(access_config, "nat_ip", null)
-        network_tier = lookup(access_config, "network_tier", null)
+        nat_ip       = access_config.value.nat_ip
+        network_tier = access_config.value.network_tier
       }
     }
     network_ip         = var.network_ip
     subnetwork_project = var.subnetwork_project == "" ? var.project : var.subnetwork_project
   }
 
-  can_ip_forward = var.can_ip_forward
+  dynamic "disk" {
+    for_each = local.all_disks
+    content {
+      auto_delete  = lookup(disk.value, "auto_delete", null)
+      boot         = lookup(disk.value, "boot", null)
+      device_name  = lookup(disk.value, "device_name", null)
+      disk_name    = lookup(disk.value, "disk_name", null)
+      disk_size_gb = lookup(disk.value, "disk_size_gb", null)
+      disk_type    = lookup(disk.value, "disk_type", null)
+      interface    = lookup(disk.value, "interface", null)
+      mode         = lookup(disk.value, "mode", null)
+      source       = lookup(disk.value, "source", null)
+      source_image = lookup(disk.value, "source_image", null)
+      type         = lookup(disk.value, "type", null)
 
-  disk {
-    auto_delete  = var.disk_auto_delete
-    boot         = true
-    source_image = var.compute_image
-    type         = "PERSISTENT"
-    disk_type    = var.disk_type
-    disk_size_gb = var.disk_size_gb
-    mode         = var.mode
+      dynamic "disk_encryption_key" {
+        for_each = lookup(disk.value, "disk_encryption_key", [])
+        content {
+          kms_key_self_link = lookup(disk_encryption_key.value, "kms_key_self_link", null)
+        }
+      }
+    }
   }
 
-  service_account {
-    email  = var.service_account_email
-    scopes = var.service_account_scopes
+  dynamic "service_account" {
+    for_each = [var.service_account]
+    content {
+      email  = lookup(service_account.value, "email", null)
+      scopes = lookup(service_account.value, "scopes", null)
+    }
   }
 
   metadata = merge(
@@ -80,13 +115,23 @@ resource "google_compute_instance_template" "default" {
     var.metadata,
   )
 
+  # scheduling must have automatic_restart be false when preemptible is true.
   scheduling {
     preemptible       = var.preemptible
-    automatic_restart = var.automatic_restart
+    automatic_restart = ! var.preemptible
   }
 
   lifecycle {
     create_before_destroy = true
+  }
+
+  dynamic "shielded_instance_config" {
+    for_each = local.shielded_vm_configs
+    content {
+      enable_secure_boot          = lookup(var.shielded_instance_config, "enable_secure_boot", shielded_instance_config.value)
+      enable_vtpm                 = lookup(var.shielded_instance_config, "enable_vtpm", shielded_instance_config.value)
+      enable_integrity_monitoring = lookup(var.shielded_instance_config, "enable_integrity_monitoring", shielded_instance_config.value)
+    }
   }
 }
 
@@ -114,11 +159,6 @@ resource "google_compute_instance_group_manager" "default" {
   dynamic "update_policy" {
     for_each = var.update_policy
     content {
-      # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-      # which keys might be set in maps assigned here, so it has
-      # produced a comprehensive set here. Consider simplifying
-      # this after confirming which keys can be set in practice.
-      # DONE, VERIFIED THE KEYS
       max_surge_fixed         = lookup(update_policy.value, "max_surge_fixed", null)
       max_surge_percent       = lookup(update_policy.value, "max_surge_percent", null)
       max_unavailable_fixed   = lookup(update_policy.value, "max_unavailable_fixed", null)
@@ -130,10 +170,7 @@ resource "google_compute_instance_group_manager" "default" {
   }
 
   target_pools = var.target_pools
-
-  // There is no way to unset target_size when autoscaling is true so for now, jsut use the min_replicas value.
-  // Issue: https://github.com/terraform-providers/terraform-provider-google/issues/667
-  target_size = var.autoscaling ? var.min_replicas : var.size
+  target_size  = var.autoscaling ? var.min_replicas : var.size
 
   named_port {
     name = var.service_port_name
@@ -176,22 +213,12 @@ resource "google_compute_autoscaler" "default" {
     dynamic "cpu_utilization" {
       for_each = var.autoscaling_cpu
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE, AUTOSCALING IS OFF FOR NAT GATEWAYS
         target = cpu_utilization.value.target
       }
     }
     dynamic "metric" {
       for_each = var.autoscaling_metric
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE VERIFIED THIS IN GUI
         name   = metric.value.name
         target = lookup(metric.value, "target", null)
         type   = lookup(metric.value, "type", null)
@@ -200,11 +227,6 @@ resource "google_compute_autoscaler" "default" {
     dynamic "load_balancing_utilization" {
       for_each = var.autoscaling_lb
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE
         target = load_balancing_utilization.value.target
       }
     }
@@ -234,24 +256,19 @@ resource "google_compute_region_instance_group_manager" "default" {
   name               = var.name
   description        = "compute VM Instance Group"
   wait_for_instances = var.wait_for_instances
-
   base_instance_name = var.name
+  region             = var.region
 
-  instance_template = google_compute_instance_template.default[0].self_link
-
-  region = var.region
+  version {
+    instance_template = google_compute_instance_template.default[0].self_link
+  }
 
   dynamic "update_policy" {
     for_each = var.update_policy
     content {
-      # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-      # which keys might be set in maps assigned here, so it has
-      # produced a comprehensive set here. Consider simplifying
-      # this after confirming which keys can be set in practice.
-      # DONE, verified all keys in terraform.io
+      minimal_action               = update_policy.value.minimal_action
       type                         = update_policy.value.type
       instance_redistribution_type = lookup(update_policy.value, "instance_redistribution_type", null)
-      minimal_action               = update_policy.value.minimal_action
       max_surge_fixed              = lookup(update_policy.value, "max_surge_fixed", null)
       max_surge_percent            = lookup(update_policy.value, "max_surge_percent", null)
       max_unavailable_fixed        = lookup(update_policy.value, "max_unavailable_fixed", null)
@@ -260,22 +277,10 @@ resource "google_compute_region_instance_group_manager" "default" {
     }
   }
 
-  # TF-UPGRADE-TODO: In Terraform v0.10 and earlier, it was sometimes necessary to
-  # force an interpolation expression to be interpreted as a list by wrapping it
-  # in an extra set of list brackets. That form was supported for compatibility in
-  # v0.11, but is no longer supported in Terraform v0.12.
-  #
-  # If the expression in the following list itself returns a list, remove the
-  # brackets to avoid interpretation as a list of lists. If the expression
-  # returns a single list item then leave it as-is and remove this TODO comment.
-  # DONE, this should be list due to it's functionality of managing multiple zones
   distribution_policy_zones = local.distribution_zones[length(var.distribution_policy_zones) == 0 ? "default" : "user"]
 
   target_pools = var.target_pools
-
-  // There is no way to unset target_size when autoscaling is true so for now, jsut use the min_replicas value.
-  // Issue: https://github.com/terraform-providers/terraform-provider-google/issues/667
-  target_size = var.autoscaling ? var.min_replicas : var.size
+  target_size  = var.autoscaling ? var.min_replicas : var.size
 
   auto_healing_policies {
     health_check = var.http_health_check ? element(
@@ -323,22 +328,12 @@ resource "google_compute_region_autoscaler" "default" {
     dynamic "cpu_utilization" {
       for_each = var.autoscaling_cpu
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE, ONLY TARGET IS REQUIRED
         target = cpu_utilization.value.target
       }
     }
     dynamic "metric" {
       for_each = var.autoscaling_metric
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE, VERIFIED REQUIRED AND OPTIONAL
         name   = metric.value.name
         target = lookup(metric.value, "target", null)
         type   = lookup(metric.value, "type", null)
@@ -347,11 +342,6 @@ resource "google_compute_region_autoscaler" "default" {
     dynamic "load_balancing_utilization" {
       for_each = var.autoscaling_lb
       content {
-        # TF-UPGRADE-TODO: The automatic upgrade tool can't predict
-        # which keys might be set in maps assigned here, so it has
-        # produced a comprehensive set here. Consider simplifying
-        # this after confirming which keys can be set in practice.
-        # DONE
         target = load_balancing_utilization.value.target
       }
     }

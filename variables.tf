@@ -142,6 +142,18 @@ variable "local_cmd_create" {
   default     = ":"
 }
 
+##################
+# service_account
+##################
+
+variable "service_account" {
+  type = object({
+    email  = string
+    scopes = set(string)
+  })
+  description = "Service account to attach to the instance. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#service_account."
+}
+
 variable "service_account_email" {
   description = "The email of the service account for the instance template."
   default     = "default"
@@ -157,6 +169,29 @@ variable "service_account_scopes" {
     "https://www.googleapis.com/auth/monitoring.write",
     "https://www.googleapis.com/auth/devstorage.full_control",
   ]
+}
+
+###########################
+# Shielded VMs
+###########################
+variable "enable_shielded_vm" {
+  default     = false
+  description = "Whether to enable the Shielded VM configuration on the instance. Note that the instance image must support Shielded VMs. See https://cloud.google.com/compute/docs/images"
+}
+
+variable "shielded_instance_config" {
+  description = "Not used unless enable_shielded_vm is true. Shielded VM configuration for the instance."
+  type = object({
+    enable_secure_boot          = bool
+    enable_vtpm                 = bool
+    enable_integrity_monitoring = bool
+  })
+
+  default = {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }
 }
 
 variable "zonal" {
@@ -176,9 +211,35 @@ variable "ssh_source_ranges" {
   default     = ["0.0.0.0/0"]
 }
 
-variable "disk_auto_delete" {
-  description = "Whether or not the disk should be auto-deleted."
-  default     = true
+variable "source_image" {
+  description = "Source disk image. If neither source_image nor source_image_family is specified, defaults to the latest public CentOS image."
+  default     = ""
+}
+
+variable "source_image_family" {
+  description = "Source image family. If neither source_image nor source_image_family is specified, defaults to the latest public CentOS image."
+  default     = "centos-7"
+}
+
+variable "source_image_project" {
+  description = "Project where the source image comes from. The default project contains images that support Shielded VMs if desired"
+  default     = "gce-uefi-images"
+}
+
+variable "auto_delete" {
+  description = "Whether or not the boot disk should be auto-deleted"
+  default     = "true"
+}
+
+variable "additional_disks" {
+  description = "List of maps of additional disks. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#disk_name"
+  type = list(object({
+    auto_delete  = bool
+    boot         = bool
+    disk_size_gb = number
+    disk_type    = string
+  }))
+  default = []
 }
 
 variable "disk_type" {
