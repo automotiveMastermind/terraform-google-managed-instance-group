@@ -14,43 +14,6 @@
  * limitations under the License.
  */
 
-###############
-# Data Sources
-###############
-data "google_compute_image" "image" {
-  project = var.source_image != "" ? var.source_image_project : "centos-cloud"
-  name    = var.source_image != "" ? var.source_image : "centos-6-v20180716"
-}
-
-data "google_compute_image" "image_family" {
-  project = var.source_image_family != "" ? var.source_image_project : "centos-cloud"
-  family  = var.source_image_family != "" ? var.source_image_family : "centos-6"
-}
-
-#########
-# Locals
-#########
-
-locals {
-  boot_disk = [
-    {
-      source_image = var.source_image != "" ? data.google_compute_image.image.self_link : data.google_compute_image.image_family.self_link
-      disk_size_gb = var.disk_size_gb
-      disk_type    = var.disk_type
-      auto_delete  = var.auto_delete
-      boot         = "true"
-    },
-  ]
-
-  all_disks = concat(local.boot_disk, var.additional_disks)
-
-  # NOTE: Even if all the shielded_instance_config values are false, if the
-  # config block exists and an unsupported image is chosen, the apply will fail
-  # so we use a single-value array with the default value to initialize the block
-  # only if it is enabled.
-  shielded_vm_configs = var.enable_shielded_vm ? [true] : []
-}
-
 resource "google_compute_instance_template" "default" {
   count          = var.module_enabled ? 1 : 0
   name_prefix    = "default-"
@@ -125,14 +88,14 @@ resource "google_compute_instance_template" "default" {
     create_before_destroy = true
   }
 
-  dynamic "shielded_instance_config" {
-    for_each = local.shielded_vm_configs
-    content {
-      enable_secure_boot          = lookup(var.shielded_instance_config, "enable_secure_boot", shielded_instance_config.value)
-      enable_vtpm                 = lookup(var.shielded_instance_config, "enable_vtpm", shielded_instance_config.value)
-      enable_integrity_monitoring = lookup(var.shielded_instance_config, "enable_integrity_monitoring", shielded_instance_config.value)
-    }
-  }
+  # dynamic "shielded_instance_config" {
+  #   for_each = local.shielded_vm_configs
+  #   content {
+  #     enable_secure_boot          = lookup(var.shielded_instance_config, "enable_secure_boot", shielded_instance_config.value)
+  #     enable_vtpm                 = lookup(var.shielded_instance_config, "enable_vtpm", shielded_instance_config.value)
+  #     enable_integrity_monitoring = lookup(var.shielded_instance_config, "enable_integrity_monitoring", shielded_instance_config.value)
+  #   }
+  # }
 }
 
 provider "google-beta" {

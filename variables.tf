@@ -211,16 +211,6 @@ variable "ssh_source_ranges" {
   default     = ["0.0.0.0/0"]
 }
 
-variable "source_image" {
-  description = "Source disk image. If neither source_image nor source_image_family is specified, defaults to the latest public CentOS image."
-  default     = ""
-}
-
-variable "source_image_family" {
-  description = "Source image family. If neither source_image nor source_image_family is specified, defaults to the latest public CentOS image."
-  default     = "centos-7"
-}
-
 variable "source_image_project" {
   description = "Project where the source image comes from. The default project contains images that support Shielded VMs if desired"
   default     = "gce-uefi-images"
