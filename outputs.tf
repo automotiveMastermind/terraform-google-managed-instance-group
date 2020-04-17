@@ -40,17 +40,6 @@ output "instances" {
   value       = data.google_compute_instance_group.zonal.*.instances
 }
 
-output "region_instance_group" {
-  description = "Link to the `instance_group` property of the region instance group manager resource."
-  value = element(
-    concat(
-      google_compute_region_instance_group_manager.default.*.instance_group,
-      [""],
-    ),
-    0,
-  )
-}
-
 output "target_tags" {
   description = "Pass through of input `target_tags`."
   value       = var.target_tags
