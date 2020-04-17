@@ -85,7 +85,7 @@ variable "access_config" {
 
 variable "source_image" {
   description = "Image used for compute VMs."
-  default     = "projects/debian-cloud/global/images/family/debian-9"
+  default     = ""
 }
 
 variable "disk_size_gb" {
