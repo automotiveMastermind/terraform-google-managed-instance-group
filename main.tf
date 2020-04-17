@@ -53,6 +53,10 @@ data "google_compute_zones" "available" {
 #########
 
 locals {
+  healthchecks = concat(
+    google_compute_health_check.mig-health-check.*.self_link,
+  )
+
   dependency_id = element(
     concat(null_resource.region_dummy_dependency.*.id, ["disabled"]),
     0,
@@ -179,7 +183,7 @@ resource "google_compute_instance_group_manager" "default" {
   }
 
   dynamic "auto_healing_policies" {
-    for_each = var.http_health_check
+    for_each = local.healthchecks
     content {
       health_check      = auto_healing_policies.value
       initial_delay_sec = var.health_check["initial_delay_sec"]
@@ -226,7 +230,7 @@ resource "google_compute_region_instance_group_manager" "default" {
   }
 
   dynamic "auto_healing_policies" {
-    for_each = var.http_health_check
+    for_each = local.healthchecks
     content {
       health_check      = auto_healing_policies.value
       initial_delay_sec = var.health_check["initial_delay_sec"]
