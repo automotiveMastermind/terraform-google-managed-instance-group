@@ -88,16 +88,6 @@ variable "source_image" {
   default     = "projects/debian-cloud/global/images/family/debian-9"
 }
 
-variable "source_image_family" {
-  description = "Source image family. If neither source_image nor source_image_family is specified, defaults to the latest public CentOS image."
-  default     = "centos-7"
-}
-
-variable "source_image_project" {
-  description = "Project where the source image comes from. The default project contains images that support Shielded VMs if desired"
-  default     = "gce-uefi-images"
-}
-
 variable "disk_size_gb" {
   description = "Boot disk size in GB"
   default     = "100"
@@ -283,11 +273,11 @@ variable "ssh_source_ranges" {
 ##################
 
 variable "service_account" {
+  description = "Service account to attach to the instance. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#service_account."
   type = object({
     email  = string
     scopes = set(string)
   })
-  description = "Service account to attach to the instance. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#service_account."
 }
 
 ###########################
