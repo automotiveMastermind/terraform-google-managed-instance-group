@@ -22,26 +22,26 @@ provider "google-beta" {
 # Data Sources
 ###############
 
-data "google_compute_instance_group" "zonal" {
-  count   = var.zonal ? 1 : 0
-  zone    = var.zone
-  project = var.project
+# data "google_compute_instance_group" "zonal" {
+#   count   = var.zonal ? 1 : 0
+#   zone    = var.zone
+#   project = var.project
 
-  // Use the dependency id which is recreated whenever the instance template changes to signal when to re-read the data source.
-  name = element(
-    split(
-      "|",
-      "${local.dependency_id}|${element(
-        concat(
-          google_compute_instance_group_manager.default.*.name,
-          ["unused"],
-        ),
-        0,
-      )}",
-    ),
-    1,
-  )
-}
+#   // Use the dependency id which is recreated whenever the instance template changes to signal when to re-read the data source.
+#   name = element(
+#     split(
+#       "|",
+#       "${local.dependency_id}|${element(
+#         concat(
+#           google_compute_instance_group_manager.default.*.name,
+#           ["unused"],
+#         ),
+#         0,
+#       )}",
+#     ),
+#     1,
+#   )
+# }
 
 data "google_compute_zones" "available" {
   project = var.project
@@ -237,7 +237,7 @@ resource "google_compute_region_instance_group_manager" "default" {
     }
   }
 
-    dynamic "update_policy" {
+  dynamic "update_policy" {
     for_each = var.update_policy
     content {
       max_surge_fixed         = lookup(update_policy.value, "max_surge_fixed", null)
@@ -270,9 +270,9 @@ resource "null_resource" "region_dummy_dependency" {
 }
 
 resource "google_compute_health_check" "mig-health-check" {
-  count   = var.http_health_check ? 1 : 0
-  name    = var.name
-  project = var.project
+  count               = var.http_health_check ? 1 : 0
+  name                = var.name
+  project             = var.project
   check_interval_sec  = var.hc_interval
   timeout_sec         = var.hc_timeout
   healthy_threshold   = var.hc_healthy_threshold

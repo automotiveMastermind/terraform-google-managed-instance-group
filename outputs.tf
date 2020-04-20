@@ -37,7 +37,7 @@ output "instance_group" {
 
 output "instances" {
   description = "List of instances in the instance group. Note that this can change dynamically depending on the current number of instances in the group and may be empty the first time read."
-  value       = data.google_compute_instance_group.zonal.*.instances
+  value       = google_compute_instance_group_manager.default.*.name
 }
 
 output "target_tags" {
