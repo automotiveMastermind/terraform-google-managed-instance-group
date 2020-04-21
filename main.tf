@@ -22,26 +22,14 @@ provider "google-beta" {
 # Data Sources
 ###############
 
-# data "google_compute_instance_group" "zonal" {
-#   count   = var.zonal ? 1 : 0
-#   zone    = var.zone
-#   project = var.project
+data "google_compute_instance_group" "zonal" {
+  count   = "${var.zonal ? 1 : 0}"
+  zone    = "${var.zone}"
+  project = "${var.project}"
 
-#   // Use the dependency id which is recreated whenever the instance template changes to signal when to re-read the data source.
-#   name = element(
-#     split(
-#       "|",
-#       "${local.dependency_id}|${element(
-#         concat(
-#           google_compute_instance_group_manager.default.*.name,
-#           ["unused"],
-#         ),
-#         0,
-#       )}",
-#     ),
-#     1,
-#   )
-# }
+  // Use the dependency id which is recreated whenever the instance template changes to signal when to re-read the data source.
+  name = "${element(split("|", "${local.dependency_id}|${element(concat(google_compute_instance_group_manager.default.*.name, list("unused")), 0)}"), 1)}"
+}
 
 data "google_compute_zones" "available" {
   project = var.project
