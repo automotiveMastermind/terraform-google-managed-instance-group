@@ -22,12 +22,10 @@ provider "google-beta" {
 # Data Sources
 ###############
 
-data "google_compute_instance_group" "zonal" {
-  zone    = "${var.zone}"
-  project = "${var.project}"
-
-  // Use the dependency id which is recreated whenever the instance template changes to signal when to re-read the data source.
-  name = "${element(split("|", "${local.dependency_id}|${element(concat(google_compute_instance_group_manager.default.*.name, list("unused")), 0)}"), 1)}"
+data "google_compute_instance_group" "default" {
+  project = var.project
+  zone    = var.zone
+  name    = google_compute_instance_group_manager.default.name
 }
 
 data "google_compute_zones" "available" {
@@ -42,11 +40,6 @@ data "google_compute_zones" "available" {
 locals {
   healthchecks = concat(
     google_compute_health_check.mig-health-check.*.self_link,
-  )
-
-  dependency_id = element(
-    concat(null_resource.region_dummy_dependency.*.id, ["disabled"]),
-    0,
   )
 
   boot_disk = [
@@ -191,70 +184,70 @@ resource "google_compute_instance_group_manager" "default" {
   }
 }
 
-resource "google_compute_region_instance_group_manager" "default" {
-  provider           = google-beta
-  project            = var.project
-  name               = var.name
-  description        = "compute VM Instance Group"
-  wait_for_instances = var.wait_for_instances
-  base_instance_name = var.name
-  region             = var.region
+# resource "google_compute_region_instance_group_manager" "default" {
+#   provider           = google-beta
+#   project            = var.project
+#   name               = var.name
+#   description        = "compute VM Instance Group"
+#   wait_for_instances = var.wait_for_instances
+#   base_instance_name = var.name
+#   region             = var.region
 
-  version {
-    name              = "${var.name}-default"
-    instance_template = google_compute_instance_template.default.self_link
-  }
+#   version {
+#     name              = "${var.name}-default"
+#     instance_template = google_compute_instance_template.default.self_link
+#   }
 
-  target_pools = var.target_pools
-  target_size  = var.autoscaling_enabled ? null : var.target_size
+#   target_pools = var.target_pools
+#   target_size  = var.autoscaling_enabled ? null : var.target_size
 
-  dynamic "named_port" {
-    for_each = var.named_ports
-    content {
-      name = lookup(named_port.value, "name", null)
-      port = lookup(named_port.value, "port", null)
-    }
-  }
+#   dynamic "named_port" {
+#     for_each = var.named_ports
+#     content {
+#       name = lookup(named_port.value, "name", null)
+#       port = lookup(named_port.value, "port", null)
+#     }
+#   }
 
-  dynamic "auto_healing_policies" {
-    for_each = local.healthchecks
-    content {
-      health_check      = auto_healing_policies.value
-      initial_delay_sec = var.health_check["initial_delay_sec"]
-    }
-  }
+#   dynamic "auto_healing_policies" {
+#     for_each = local.healthchecks
+#     content {
+#       health_check      = auto_healing_policies.value
+#       initial_delay_sec = var.health_check["initial_delay_sec"]
+#     }
+#   }
 
-  dynamic "update_policy" {
-    for_each = var.update_policy
-    content {
-      max_surge_fixed         = lookup(update_policy.value, "max_surge_fixed", null)
-      max_surge_percent       = lookup(update_policy.value, "max_surge_percent", null)
-      max_unavailable_fixed   = lookup(update_policy.value, "max_unavailable_fixed", null)
-      max_unavailable_percent = lookup(update_policy.value, "max_unavailable_percent", null)
-      min_ready_sec           = lookup(update_policy.value, "min_ready_sec", null)
-      minimal_action          = update_policy.value.minimal_action
-      type                    = update_policy.value.type
-    }
-  }
-}
+#   dynamic "update_policy" {
+#     for_each = var.update_policy
+#     content {
+#       max_surge_fixed         = lookup(update_policy.value, "max_surge_fixed", null)
+#       max_surge_percent       = lookup(update_policy.value, "max_surge_percent", null)
+#       max_unavailable_fixed   = lookup(update_policy.value, "max_unavailable_fixed", null)
+#       max_unavailable_percent = lookup(update_policy.value, "max_unavailable_percent", null)
+#       min_ready_sec           = lookup(update_policy.value, "min_ready_sec", null)
+#       minimal_action          = update_policy.value.minimal_action
+#       type                    = update_policy.value.type
+#     }
+#   }
+# }
 
-resource "null_resource" "dummy_dependency" {
-  count      = var.zonal ? 1 : 0
-  depends_on = [google_compute_instance_group_manager.default]
+# resource "null_resource" "dummy_dependency" {
+#   count      = var.zonal ? 1 : 0
+#   depends_on = [google_compute_instance_group_manager.default]
 
-  triggers = {
-    instance_template = element(google_compute_instance_template.default.*.self_link, 0)
-  }
-}
+#   triggers = {
+#     instance_template = element(google_compute_instance_template.default.*.self_link, 0)
+#   }
+# }
 
-resource "null_resource" "region_dummy_dependency" {
-  count      = var.zonal ? 1 : 0
-  depends_on = [google_compute_region_instance_group_manager.default]
+# resource "null_resource" "region_dummy_dependency" {
+#   count      = var.zonal ? 1 : 0
+#   depends_on = [google_compute_region_instance_group_manager.default]
 
-  triggers = {
-    instance_template = element(google_compute_instance_template.default.*.self_link, 0)
-  }
-}
+#   triggers = {
+#     instance_template = element(google_compute_instance_template.default.*.self_link, 0)
+#   }
+# }
 
 resource "google_compute_health_check" "mig-health-check" {
   count               = var.http_health_check ? 1 : 0

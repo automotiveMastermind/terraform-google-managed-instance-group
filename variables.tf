@@ -63,7 +63,7 @@ variable "preemptible" {
 
 variable "wait_for_instances" {
   description = "Wait for all instances to be created/updated before returning"
-  default     = false
+  default     = true
 }
 
 ###########################
@@ -207,7 +207,7 @@ variable update_policy {
     max_unavailable_fixed = number
     min_ready_sec         = number
   }))
-  default     = []
+  default = []
 }
 
 ##############
