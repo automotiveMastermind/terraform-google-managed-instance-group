@@ -23,7 +23,6 @@ provider "google-beta" {
 ###############
 
 data "google_compute_instance_group" "zonal" {
-  count   = "${var.zonal ? 1 : 0}"
   zone    = "${var.zone}"
   project = "${var.project}"
 
