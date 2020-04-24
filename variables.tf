@@ -14,194 +14,46 @@
  * limitations under the License.
  */
 
-variable module_enabled {
-  description = ""
-  default     = true
+variable "name" {
+  description = "Name of the managed instance group."
 }
 
-variable project {
+variable "project" {
   description = "The project to deploy to, if not set the default provider project is used."
   default     = ""
 }
 
-variable region {
+variable "region" {
   description = "Region for cloud resources."
-  default     = "us-central1"
+  default     = ""
 }
 
-variable zone {
+variable "zone" {
   description = "Zone for managed instance groups."
-  default     = "us-central1-f"
-}
-
-variable network {
-  description = "Name of the network to deploy instances to."
-  default     = "default"
-}
-
-variable subnetwork {
-  description = "The subnetwork to deploy to"
-  default     = "default"
-}
-
-variable subnetwork_project {
-  description = "The project the subnetwork belongs to. If not set, var.project is used instead."
   default     = ""
 }
 
-variable name {
-  description = "Name of the managed instance group."
-}
-
-variable size {
-  description = "Target size of the managed instance group."
-  default     = 1
-}
-
-variable startup_script {
-  description = "Content of startup-script metadata passed to the instance template."
-  default     = ""
-}
-
-variable access_config {
-  description = "The access config block for the instances. Set to [] to remove external IP."
-  type        = "list"
-
-  default = [
-    {},
-  ]
-}
-
-variable metadata {
-  description = "Map of metadata values to pass to instances."
-  type        = "map"
-  default     = {}
-}
-
-variable can_ip_forward {
-  description = "Allow ip forwarding."
-  default     = false
-}
-
-variable network_ip {
-  description = "Set the network IP of the instance in the template. Useful for instance groups of size 1."
-  default     = ""
-}
-
-variable machine_type {
-  description = "Machine type for the VMs in the instance group."
-  default     = "f1-micro"
-}
-
-variable compute_image {
-  description = "Image used for compute VMs."
-  default     = "projects/debian-cloud/global/images/family/debian-9"
-}
-
-variable wait_for_instances {
-  description = "Wait for all instances to be created/updated before returning"
-  default     = false
-}
-
-variable update_policy {
-  description = "The upgrade policy to apply when the instance template changes."
-  type        = "list"
-  default     = []
-}
-
-variable service_port {
-  description = "Port the service is listening on."
-}
-
-variable service_port_name {
-  description = "Name of the port the service is listening on."
-}
-
-variable target_tags {
-  description = "Tag added to instances for firewall and networking."
-  type        = "list"
-  default     = ["allow-service"]
-}
-
-variable instance_labels {
-  description = "Labels added to instances."
-  type        = "map"
-  default     = {}
-}
-
-variable target_pools {
-  description = "The target load balancing pools to assign this group to."
-  type        = "list"
-  default     = []
-}
-
-variable depends_id {
-  description = "The ID of a resource that the instance group depends on."
-  default     = ""
-}
-
-variable local_cmd_create {
-  description = "Command to run on create as local-exec provisioner for the instance group manager."
-  default     = ":"
-}
-
-variable local_cmd_destroy {
-  description = "Command to run on destroy as local-exec provisioner for the instance group manager."
-  default     = ":"
-}
-
-variable service_account_email {
-  description = "The email of the service account for the instance template."
-  default     = "default"
-}
-
-variable service_account_scopes {
-  description = "List of scopes for the instance template service account"
-  type        = "list"
-
-  default = [
-    "https://www.googleapis.com/auth/compute",
-    "https://www.googleapis.com/auth/logging.write",
-    "https://www.googleapis.com/auth/monitoring.write",
-    "https://www.googleapis.com/auth/devstorage.full_control",
-  ]
-}
-
-variable zonal {
+variable "zonal" {
   description = "Create a single-zone managed instance group. If false, a regional managed instance group is created."
   default     = true
 }
 
-variable distribution_policy_zones {
-  description = "The distribution policy for this managed instance group when zonal=false. Default is all zones in given region."
-  type        = "list"
-  default     = []
+####################
+# Instance Template
+###################
+variable "can_ip_forward" {
+  description = "Allow ip forwarding."
+  default     = false
 }
 
-variable ssh_source_ranges {
-  description = "Network ranges to allow SSH from"
-  type        = "list"
-  default     = ["0.0.0.0/0"]
+variable "machine_type" {
+  description = "Machine type for the VMs in the instance group."
+  default     = "f1-micro"
 }
 
-variable disk_auto_delete {
-  description = "Whether or not the disk should be auto-deleted."
-  default     = true
-}
-
-variable disk_type {
-  description = "The GCE disk type. Can be either pd-ssd, local-ssd, or pd-standard."
-  default     = "pd-ssd"
-}
-
-variable disk_size_gb {
-  description = "The size of the image in gigabytes. If not specified, it will inherit the size of its base image."
-  default     = 0
-}
-
-variable mode {
-  description = "The mode in which to attach this disk, either READ_WRITE or READ_ONLY."
-  default     = "READ_WRITE"
+variable "network_ip" {
+  description = "Set the network IP of the instance in the template. Useful for instance groups of size 1."
+  default     = ""
 }
 
 variable "preemptible" {
@@ -209,51 +61,273 @@ variable "preemptible" {
   default     = "false"
 }
 
+variable "wait_for_instances" {
+  description = "Wait for all instances to be created/updated before returning"
+  default     = true
+}
+
+###########################
+# Public IP / Access Config
+###########################
+
+variable "access_config" {
+  description = "Access configurations, i.e. IPs via which the VM instance can be accessed via the Internet."
+  type = list(object({
+    nat_ip       = string
+    network_tier = string
+  }))
+  default = []
+}
+
+#################
+# Source Image
+#################
+
+variable "source_image" {
+  description = "Image used for compute VMs."
+  default     = ""
+}
+
+
+variable "device_name" {
+  default = "persistent-disk-0"
+}
+
+variable "interface" {
+  description = "Disk Interface"
+  default     = "SCSI"
+}
+
+variable "disk_type" {
+  description = "Boot disk type, can be either pd-ssd, local-ssd, or pd-standard"
+  default     = "pd-ssd"
+}
+
+variable "disk_size_gb" {
+  description = "Size in GB"
+  default     = "0"
+}
+
+variable "auto_delete" {
+  description = "Whether or not the boot disk should be auto-deleted"
+  default     = "true"
+}
+
+variable "boot_type" {
+  description = "Disk Type"
+  default     = "PERSISTENT"
+}
+
+variable "additional_disks" {
+  description = "List of maps of additional disks. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#disk_name"
+  type = list(object({
+    auto_delete  = bool
+    boot         = bool
+    disk_size_gb = number
+    disk_type    = string
+  }))
+  default = []
+}
+
+variable "mode" {
+  description = "The mode in which to attach this disk, either READ_WRITE or READ_ONLY."
+  default     = "READ_WRITE"
+}
+
 variable "automatic_restart" {
   description = "Automatically restart the instance if terminated by GCP - Set to false if using preemptible instances"
   default     = "true"
 }
 
-/* Autoscaling */
-variable autoscaling {
-  description = "Enable autoscaling."
-  default     = false
+####################
+# network_interface
+####################
+
+variable "network" {
+  description = "Name of the network to deploy instances to."
+  default     = "default"
 }
 
-variable max_replicas {
-  description = "Autoscaling, max replicas."
-  default     = 5
+variable "subnetwork" {
+  description = "The subnetwork to deploy to"
+  default     = "default"
 }
 
-variable min_replicas {
-  description = "Autoscaling, min replics."
+variable "subnetwork_project" {
+  description = "The project the subnetwork belongs to. If not set, var.project is used instead."
+  default     = ""
+}
+
+###########
+# metadata
+###########
+
+variable "metadata" {
+  type        = map(string)
+  description = "Map of metadata values to pass to instances."
+  default     = {}
+}
+
+variable "startup_script" {}
+
+#################
+# IG Manager
+#################
+
+variable target_tags {
+  description = "Tag added to instances for firewall and networking."
+  type        = list
+  default     = ["allow-service"]
+}
+
+variable instance_labels {
+  description = "Labels added to instances."
+  type        = map
+  default     = {}
+}
+
+variable target_pools {
+  description = "The target load balancing pools to assign this group to."
+  type        = list
+  default     = []
+}
+
+variable "target_size" {
+  description = "Target size of the managed instance group."
   default     = 1
 }
 
-variable cooldown_period {
-  description = "Autoscaling, cooldown period in seconds."
-  default     = 60
+variable "named_ports" {
+  description = "Named name and named port. https://cloud.google.com/load-balancing/docs/backend-service#named_ports"
+  type = list(object({
+    name = string
+    port = number
+  }))
 }
 
-variable autoscaling_cpu {
-  description = "Autoscaling, cpu utilization policy block as single element array. https://www.terraform.io/docs/providers/google/r/compute_autoscaler.html#cpu_utilization"
-  type        = "list"
-  default     = []
+#################
+# Rolling Update
+#################
+
+variable update_policy {
+  description = "The upgrade policy to apply when the instance template changes."
+  type = list(object({
+    type                  = string
+    minimal_action        = string
+    max_surge_fixed       = number
+    max_unavailable_fixed = number
+    min_ready_sec         = number
+  }))
+  default = []
 }
 
-variable autoscaling_metric {
-  description = "Autoscaling, metric policy block as single element array. https://www.terraform.io/docs/providers/google/r/compute_autoscaler.html#metric"
-  type        = "list"
-  default     = []
+##############
+# Healthcheck
+##############
+
+variable "health_check" {
+  description = "Health check to determine whether instances are responsive and able to do work"
+  type = object({
+    type                = string
+    initial_delay_sec   = number
+    check_interval_sec  = number
+    healthy_threshold   = number
+    timeout_sec         = number
+    unhealthy_threshold = number
+    response            = string
+    proxy_header        = string
+    port                = number
+    request             = string
+    request_path        = string
+    host                = string
+  })
+  default = {
+    type                = ""
+    initial_delay_sec   = 30
+    check_interval_sec  = 30
+    healthy_threshold   = 1
+    timeout_sec         = 10
+    unhealthy_threshold = 5
+    response            = ""
+    proxy_header        = "NONE"
+    port                = 80
+    request             = ""
+    request_path        = "/"
+    host                = ""
+  }
 }
 
-variable autoscaling_lb {
-  description = "Autoscaling, load balancing utilization policy block as single element array. https://www.terraform.io/docs/providers/google/r/compute_autoscaler.html#load_balancing_utilization"
-  type        = "list"
-  default     = []
+##############
+# Firewall
+##############
+variable "service_port" {
+  description = "Port the service is listening on."
 }
 
-/* Health checks */
+variable "service_port_name" {
+  description = "Name of the port the service is listening on."
+}
+
+variable "ssh_fw_rule" {
+  description = "Whether or not the SSH Firewall Rule should be created"
+  default     = true
+}
+
+variable "ssh_source_ranges" {
+  description = "Network ranges to allow SSH from"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+##################
+# service_account
+##################
+
+variable "service_account" {
+  description = "Service account to attach to the instance. See https://www.terraform.io/docs/providers/google/r/compute_instance_template.html#service_account."
+  type = object({
+    email  = string
+    scopes = set(string)
+  })
+}
+
+###########################
+# Shielded VMs
+###########################
+
+variable "enable_shielded_vm" {
+  default     = false
+  description = "Whether to enable the Shielded VM configuration on the instance. Note that the instance image must support Shielded VMs. See https://cloud.google.com/compute/docs/images"
+}
+
+variable "shielded_instance_config" {
+  description = "Not used unless enable_shielded_vm is true. Shielded VM configuration for the instance."
+  type = object({
+    enable_secure_boot          = bool
+    enable_vtpm                 = bool
+    enable_integrity_monitoring = bool
+  })
+
+  default = {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }
+}
+
+#############
+# Autoscaler
+#############
+
+variable "autoscaling_enabled" {
+  description = "Creates an autoscaler for the managed instance group"
+  default     = false
+}
+
+#############
+# Healthcheck
+#############
+
 variable http_health_check {
   description = "Enable or disable the http health check for auto healing."
   default     = true
@@ -292,9 +366,4 @@ variable hc_port {
 variable hc_path {
   description = "Health check, the http path to check."
   default     = "/"
-}
-
-variable ssh_fw_rule {
-  description = "Whether or not the SSH Firewall Rule should be created"
-  default     = true
 }
