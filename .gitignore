@@ -1,5 +1,5 @@
+.tool-versions
 **/terraform.tfstate*
 **/.terraform*
 **/backend.tf
 **/terraform.tfvars
-**/values-*.yaml
